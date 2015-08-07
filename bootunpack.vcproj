@@ -190,6 +190,10 @@
 				RelativePath=".\lzo_crc.c"
 				>
 			</File>
+			<File
+				RelativePath=".\README.md"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Header Files"
@@ -211,10 +215,6 @@
 			UniqueIdentifier="{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}"
 			>
 		</Filter>
-		<File
-			RelativePath=".\ReadMe.txt"
-			>
-		</File>
 	</Files>
 	<Globals>
 	</Globals>

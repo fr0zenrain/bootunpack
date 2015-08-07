@@ -242,8 +242,10 @@ int is_vmlinuz(unsigned char* pdata,int size)
 {
     if(pdata && size)
 	{
-		if(strncmp(pdata,"\xd3\xf0\x21\xe3\x10\x9f\x10\xee",8)==0)
+		if(strncmp(pdata,"\xd3\xf0\x21\xe3\x10\x9f\x10\xee",8)==0||
+			strncmp(pdata,"\x46\x42\x00\xeb\x00\x90\x0f\xe1",8)==0 )//mx4
 			return 1;
+
 	}
 
 	return 0;
