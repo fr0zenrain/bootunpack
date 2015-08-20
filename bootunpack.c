@@ -669,7 +669,7 @@ zimg:
 
 void usage()
 {
-	printf("Android boot.img analyzer 1.3\n");
+	printf("Android boot.img analyzer 1.4\n");
 	printf("usage: image path option [...]\n");
 	printf("/f save ioctl symbol\n");
 	printf("/e save vmlinuz and ramdisk from image\n");

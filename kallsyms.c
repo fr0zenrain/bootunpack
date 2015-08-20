@@ -36,6 +36,7 @@ int disasm(krninfo* krn)
 
 //some you want hardcode kernel address
 extern int g_save_ioctl_func;
+unsigned int sys_call_table_addr = 0;
 FILE* fdevice_log = 0;
 
 static const char* used_symbol[] =
@@ -508,6 +509,8 @@ int extract_kallsyms(const char* directory,krninfo* krn)
 		if(is_show_symbol(namebuf))
 		{
             printf("%.8x	%c	%s\n",krn->kallsyms_addresses[i],kallsyms_get_symbol_type(krn,offs),namebuf);
+			if(sys_call_table_addr == 0 && strcmp(namebuf,"sys_call_table")==0)
+				sys_call_table_addr = krn->kallsyms_addresses[i];
 		}
 		if(fdevice_log && is_ioctl_sym(namebuf))
 		{
@@ -521,6 +524,11 @@ int extract_kallsyms(const char* directory,krninfo* krn)
 		memset(namebuf,0,128);
 	}
 	fputs("}\n",fidc);
+	if(sys_call_table_addr)
+	{
+		sprintf(pathbuffer,"%.8x	%c	%s\r\n",sys_call_table_addr+271*4,"T","sys_ni_call");
+		printf("%s\n",pathbuffer);
+	}
 	fflush(fidc);
 	fclose(fidc);
 
