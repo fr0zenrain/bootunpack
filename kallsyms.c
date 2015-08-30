@@ -49,6 +49,8 @@ static const char* used_symbol[] =
 	"dev_attr_ro",
 	"sys_oabi_semop",
 	"perf_swevent_enabled",
+	"sys_setresuid",
+	"sys_setresgid",
 };
 
 static unsigned int kernel_base[]=
@@ -526,7 +528,8 @@ int extract_kallsyms(const char* directory,krninfo* krn)
 	fputs("}\n",fidc);
 	if(sys_call_table_addr)
 	{
-		sprintf(pathbuffer,"%.8x	%c	%s\r\n",sys_call_table_addr+271*4,"T","sys_ni_call");
+		memset(pathbuffer,0,260);
+		sprintf(pathbuffer,"%.8x	T	sys_ni_call\r\n",sys_call_table_addr+271*4);
 		printf("%s\n",pathbuffer);
 	}
 	fflush(fidc);
