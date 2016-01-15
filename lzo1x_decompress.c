@@ -46,6 +46,12 @@ unsigned short get_unaligned_le16(const unsigned char *p)
         return p[0] | p[1] << 8;
 }
 
+
+unsigned int get_unaligned_le32(const unsigned char *p)
+{
+	return *(unsigned int*)p;
+}
+
 unsigned short  get_be16(const unsigned char *b)
 {
 	unsigned short  v;

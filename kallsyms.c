@@ -51,6 +51,8 @@ static const char* used_symbol[] =
 	"perf_swevent_enabled",
 	"sys_setresuid",
 	"sys_setresgid",
+	"blk_set_ro_secure_debuggable",
+	"sony_ric_enabled"
 };
 
 static unsigned int kernel_base[]=

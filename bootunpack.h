@@ -13,6 +13,10 @@
 
 */
 
+#ifdef __MACH__
+#define MAP_ANONYMOUS MAP_ANON
+#endif
+
 #define BOOT_MAGIC_SIZE   8
 #define BOOT_NAME_SIZE   16
 #define  BOOT_ARGS_SIZE  512
@@ -31,6 +35,7 @@ enum compress
 	BZ2,
 	LZMA,
 	LZO,
+	LZ4,
 	XZ,
 	TAR,
 };
@@ -55,6 +60,7 @@ typedef struct _boot_img_hdr
 
 typedef struct _krninfo
 {
+	boot_img_hdr* boot_hdr;
 	unsigned char* vmlinuzbuffer;
 	unsigned int vmlinuz_size;
 	unsigned char* ramdiskbuffer;

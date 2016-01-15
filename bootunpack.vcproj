@@ -194,6 +194,10 @@
 				RelativePath=".\README.md"
 				>
 			</File>
+			<File
+				RelativePath=".\unlz4.c"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Header Files"
@@ -214,6 +218,30 @@
 			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav"
 			UniqueIdentifier="{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}"
 			>
+		</Filter>
+		<Filter
+			Name="lz4"
+			>
+			<File
+				RelativePath=".\lz4\lz4.h"
+				>
+			</File>
+			<File
+				RelativePath=".\lz4\lz4_compress.c"
+				>
+			</File>
+			<File
+				RelativePath=".\lz4\lz4_decompress.c"
+				>
+			</File>
+			<File
+				RelativePath=".\lz4\lz4defs.h"
+				>
+			</File>
+			<File
+				RelativePath=".\lz4\lz4hc_compress.c"
+				>
+			</File>
 		</Filter>
 	</Files>
 	<Globals>

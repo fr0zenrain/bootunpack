@@ -5,12 +5,15 @@
 #include "zlib.h"
 #include "bootunpack.h"
 #include "lzo.h"
+#include "lz4/lz4.h"
 #ifdef _WIN32
 #include "windows.h"
 #pragma comment(lib,"zlib.lib")
 #else
 #include <sys/mman.h>
 #endif
+
+extern unsigned int lzo_adler32(unsigned int adler, unsigned char* buf, int len);
 
 
 int g_save_kernel = 0;
@@ -179,7 +182,12 @@ char * _strstr_(const char *in,size_t size, const char *str)
 
 int is_android_bootimg(unsigned char* pdata,int size)
 {
-	return pdata && strncmp(pdata,"ANDROID!",8) == 0;
+	return pdata && strncmp(pdata,"ANDROID!",8) == 0 ;
+}
+
+int is_elf(unsigned char* pdata,int size)
+{
+	return pdata && strncmp(pdata,"\x7f\x45\x4c\x46",4) ==0;//sony x50h is ELF
 }
 
 int is_zimage(unsigned char* pdata,int size)
@@ -243,7 +251,11 @@ int is_vmlinuz(unsigned char* pdata,int size)
     if(pdata && size)
 	{
 		if(strncmp(pdata,"\xd3\xf0\x21\xe3\x10\x9f\x10\xee",8)==0||
-			strncmp(pdata,"\x46\x42\x00\xeb\x00\x90\x0f\xe1",8)==0 )//mx4
+			strncmp(pdata,"\x46\x42\x00\xeb\x00\x90\x0f\xe1",8)==0 || //mx4
+			strncmp(pdata,"\x46\x20\x04\xeb\x00\x90\x0f\xe1",8)==0 || //samsung
+			strncmp(pdata,"\x76\x20\x04\xeb\x00\x90\x0f\xe1",8)==0 ||
+			strncmp(pdata,"\x3e\x2d\x04\xeb\x00\x90\x0f\xe1",8)==0
+			)
 			return 1;
 
 	}
@@ -325,6 +337,78 @@ int gzip_decode_kernel(unsigned char* image ,unsigned int size,krninfo* krn)
 
 	return 0;
 }
+
+
+int get_lz4_offset(unsigned char* pdata,unsigned int size,int start_offset)
+{
+	unsigned int offset = start_offset;
+
+	if(pdata ==0  )
+		return 0;
+
+	for(;offset < size - 4;offset++)
+	{
+		if(*(unsigned int*)(pdata+offset) == 0x184C2102)
+		{
+			return offset;
+		}
+	}
+
+	return 0;
+}
+
+void err_msg(char* msg)
+{
+}
+
+int lz4_decode_kernel(unsigned char* image ,unsigned int size,krninfo* krn)
+{
+	int ok = 0;
+	unsigned int posp;
+	unsigned int outsize;
+	int lz4_offs =0;
+
+	lz4_offs = get_lz4_offset(image,size-lz4_offs,lz4_offs);
+	while(lz4_offs)
+	{
+
+		krn->vmlinuz_size = (size - lz4_offs)*4;//assume
+
+#ifdef _WIN32
+		krn->vmlinuzbuffer = (unsigned char*)VirtualAlloc(0,krn->vmlinuz_size,MEM_COMMIT,PAGE_READWRITE);
+#else
+		krn->vmlinuzbuffer = (unsigned char*)mmap(0,krn->vmlinuz_size,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS ,0,0);
+#endif
+		if(krn->vmlinuzbuffer)
+		{
+			ok = unlz4(image+lz4_offs,size-lz4_offs,0,0,krn->vmlinuzbuffer,&posp,&outsize,err_msg);
+
+			//because we don't know the size,so it can not return 0
+			if(ok  != 0 && posp < 4*1024*1024)
+			{
+#ifdef _WIN32
+				VirtualFree(krn->vmlinuzbuffer,krn->vmlinuz_size,MEM_RELEASE);
+#else
+				munmap(krn->vmlinuzbuffer,krn->vmlinuz_size);
+#endif
+
+				krn->vmlinuz_size = 0;
+			}
+		}
+
+		if(is_vmlinuz(krn->vmlinuzbuffer,krn->vmlinuz_size))
+		{
+			krn->kernel_offs = lz4_offs;
+			krn->vmlinuz_size = outsize;
+			return 1;
+		}
+
+		lz4_offs = get_lz4_offset(image,size-lz4_offs-4,lz4_offs+4);
+	}
+
+	return 0;
+}
+
 
 int lzo_get_method(header_t *h)
 {
@@ -458,7 +542,6 @@ int get_lzopdata_offset(unsigned char* pdata,unsigned int size,int start_offset,
 int get_lzop_offset(unsigned char* pdata,unsigned int size,int start_offset)
 {
 	unsigned int offset  = start_offset;
-	int value;
 
 	if(pdata ==0 )
 		return 0;
@@ -476,9 +559,7 @@ int get_lzop_offset(unsigned char* pdata,unsigned int size,int start_offset)
 
 int lzop_decode_kernel(unsigned char* image ,unsigned int size,krninfo* krn)
 {
-	int ret;
 	unsigned int data_offset;
-	unsigned int compress_size;
 	int lzop_offs =0;
 	int block_size = BLOCK_SIZE;
 
@@ -530,6 +611,22 @@ int lzop_decode_kernel(unsigned char* image ,unsigned int size,krninfo* krn)
 	return 0;
 }
 
+int guess_offset(unsigned char* data,unsigned int size)
+{
+	int offset = 0;
+
+	if(is_zimage(data+0x800,size))
+	{
+		offset = 0x800;
+	}
+	else if(is_vmlinuz(data+0x1000,size))
+	{
+		offset = 0x800;
+	}
+
+	return offset;
+}
+
 int load_bootimg(const char* path)
 {
 	int size;
@@ -558,13 +655,14 @@ int load_bootimg(const char* path)
 	fread(image,1,size,fd);
 	fclose(fd);
 
+	memset(&krn,0,sizeof(krninfo));
 	if(is_zimage(image,size))
 	{
 		printf("looks like zImage\n");
 		goto zimg;
 	}
 
-    if(!is_android_bootimg(image,size))
+    if(!is_android_bootimg(image,size) && !is_elf(image,size))
 	{
 		printf("not an Android boot.img\n");
 		free(image);
@@ -577,7 +675,7 @@ int load_bootimg(const char* path)
 		printf("%s\n\n",hdr->cmdline);
 	}
 
-	memset(&krn,0,sizeof(krninfo));
+	krn.boot_hdr = hdr;
 
 zimg:
 	if(_strstr_(image+0xa00,size-0xa00,"Linux version"))
@@ -615,9 +713,25 @@ zimg:
 			krn.type = LZO;
 			printf("kenerl compress method: lzo\n");
 		}
+		else if(lz4_decode_kernel(image,size,&krn))
+		{
+			krn.type = LZ4;
+			printf("kenerl compress method: lz4\n");
+		}
 		else
 		{
 			krn.type = UNKNOW;
+
+	        krn.kernel_offs = guess_offset(image,size);
+			if(krn.kernel_offs)
+			{
+				krn.type = UNCOMPRESS;
+				krn.vmlinuzbuffer = image + krn.kernel_offs;
+				krn.vmlinuz_size = hdr->kernel_size;
+			}
+
+	
+			
 			printf("not found packed vmlinuz or unknow compress method\n");
 		}
 	}
@@ -669,11 +783,11 @@ zimg:
 
 void usage()
 {
-	printf("Android boot.img analyzer 1.4\n");
+	printf("Android boot.img analyzer 1.5\n");
 	printf("usage: image path option [...]\n");
-	printf("/f save ioctl symbol\n");
-	printf("/e save vmlinuz and ramdisk from image\n");
-	printf("/s save symbols as idc script format\n");
+	printf("-f save ioctl symbol\n");
+	printf("-e save vmlinuz and ramdisk from image\n");
+	printf("-s save symbols as idc script format\n");
 	
 
 }
@@ -693,7 +807,7 @@ int main(int argc, char* argv[])
 	{
 		p = argv[i];
 
-		if (*p == '/' || *p == '-' )
+		if (*p == '-' )
 		{
 			p++;
 
@@ -721,7 +835,7 @@ int main(int argc, char* argv[])
 	for ( i = 1; i < argc; i ++)
 	{
 		p = argv[i];
-		if (*p == '/' || *p == '-')	// skip option
+		if (*p == '-')	// skip option
 			continue;
 #ifdef _WIN32
 		GetFullPathName(p, 260, path, 0);
