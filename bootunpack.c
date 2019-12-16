@@ -795,7 +795,7 @@ int main(int argc, char* argv[])
 {
 	int i;
 	const char* p = 0;
-	char path[260]={0};
+	static char path[260]={0};
 
 	if(argc < 2 )
 	{

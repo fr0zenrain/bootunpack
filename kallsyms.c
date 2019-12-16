@@ -446,7 +446,7 @@ int is_show_symbol(const char* symbol)
 {
 	int i;
 
-    for(i = 0;i < sizeof(used_symbol)/sizeof(int) ;i++)
+    for(i = 0;i < sizeof(used_symbol)/sizeof(char*) ;i++)
 	{
         if(strcmp(used_symbol[i],symbol) ==0 )
 		{
